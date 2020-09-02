@@ -33,8 +33,10 @@
                 <a class="btn btn-sm text-muted" href="{% url 'post' post.author.username post.id %}" role="button">
                     {% if post.comments.exists %}
                     {{ post.comments.count }} комментариев
-                    {% else%}
+                    {% else %}
+                    {% if user.is_authenticated %}
                     Добавить комментарий
+                    {% endif %}
                     {% endif %}
                 </a>
                     
@@ -48,7 +50,7 @@
             </div>
             
             <!-- Дата публикации поста -->
-            <small class="text-muted">{{ post.pub_date }}</small>
+            <small class="text-muted">{{ post.pub_date|date:"d M Y" }}</small>
             
         </div>
         <div class = "col-md-7">

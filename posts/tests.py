@@ -27,6 +27,7 @@ class ContentTest(TestCase):
             slug='test',
             description='Test group'
         )
+        cache.clear()
 
     def test_profile(self):
         """Тест №1 страницы профиля после регистрации."""
@@ -143,7 +144,6 @@ class ContentTest(TestCase):
                     self.group,
                     msg='Название группы не совпадает с заданной'
                 )
-                cache.clear()
                 self.assertEqual(
                     response.context['page'][0].author,
                     self.post.author
@@ -205,33 +205,34 @@ class ContentTest(TestCase):
             reverse('group_posts', args=[self.new_group.slug])
         )
         for url in url_list:
-            response = self.client_auth.get(url)
-            self.assertEqual(
-                response.status_code,
-                200,
-                msg='Главная страница не отображается'
-            )
-            counter = response.context['paginator'].count
-            self.assertNotEqual(
-                counter,
-                0,
-                msg='На странице неправильное количество записей'
-            )
-            self.assertEqual(
-                response.context['page'][0].text,
-                'Отредактированный тестовый пост',
-                msg='Текст не совпадает с заданным'
-            )
-            self.assertEqual(
-                response.context['page'][0].group,
-                self.new_group,
-                msg='Название группы не совпадает с заданным'
-            )
-            self.assertEqual(
-                response.context['page'][0].author,
-                self.user,
-                msg='Имя автора неверное'
-            )
+            with self.subTest(url=url):
+                response = self.client_auth.get(url)
+                self.assertEqual(
+                    response.status_code,
+                    200,
+                    msg='Главная страница не отображается'
+                )
+                counter = response.context['paginator'].count
+                self.assertNotEqual(
+                    counter,
+                    0,
+                    msg='На странице неправильное количество записей'
+                )
+                self.assertEqual(
+                    response.context['page'][0].text,
+                    'Отредактированный тестовый пост',
+                    msg='Текст не совпадает с заданным'
+                )
+                self.assertEqual(
+                    response.context['page'][0].group,
+                    self.new_group,
+                    msg='Название группы не совпадает с заданным'
+                )
+                self.assertEqual(
+                    response.context['page'][0].author,
+                    self.user,
+                    msg='Имя автора неверное'
+                )
 
         """Так как группа сменилось, так же проверка на удаление записи
         со страницы прошлой группы.
@@ -289,6 +290,7 @@ class TestImg(TestCase):
             slug='test',
             description='Группа для теста'
         )
+        cache.clear()
 
     def test_post_img(self):
         """Тест шаблона на наличие тэга <img>."""
@@ -300,7 +302,7 @@ class TestImg(TestCase):
         img = SimpleUploadedFile(
             name='gif',
             content=gif,
-            content_type='image/jpeg',
+            content_type='image/gif',
         )
         post = Post.objects.create(
             text='Тестовый пост',
@@ -310,6 +312,7 @@ class TestImg(TestCase):
             image=img
         )
         url_list = [
+            reverse('profile', args=[self.user.username]),
             reverse('post', args=[self.user.username, post.id])
         ]
 
@@ -323,7 +326,7 @@ class TestImg(TestCase):
         txt = SimpleUploadedFile(
             name='txt',
             content=b'content',
-            content_type='text/plain',
+            content_type='text/txt',
         )
         url = reverse('new_post')
         response = self.client.post(
@@ -370,11 +373,6 @@ class TestCache(TestCase):
     def test_cache(self):
         """Тест кэширования главной страницы."""
         response = self.client.get(reverse('index'))
-        self.assertContains(
-            response,
-            self.post.text,
-            msg_prefix='Пост не отображается'
-        )
         self.client.post(
             reverse('new_post'),
             {
@@ -382,20 +380,34 @@ class TestCache(TestCase):
                 'group': self.group.id
             }
         )
+        self.assertContains(
+            response,
+            self.post.text,
+            msg_prefix='Пост не отображается'
+        )
         self.assertNotContains(
             response,
             'Новый тестовый пост',
             msg_prefix='Ошибка кэширования, новый пост отобразился сразу'
         )
+        self.assertEqual(
+            response.context['paginator'].count,
+            1,
+            msg='Количество постов на странице изменилось'
+                'до очистки кэша'
+        )
+
         cache.clear()
         new_response = self.client.get(reverse('index'))
         self.assertContains(
             new_response,
-            'Новый тестовый пост'
+            'Новый тестовый пост',
+            msg_prefix='Кэш работает неверно, новый пост не отобразился'
         )
         self.assertEqual(
             new_response.context['paginator'].count,
-            2
+            2,
+            msg='Новый пост не создался'
         )
 
 
@@ -426,6 +438,7 @@ class FollowTest(TestCase):
             pub_date=dt.datetime.now(),
             group=self.group
         )
+        cache.clear()
 
     def test_follow(self):
         """Тест подписки."""
@@ -444,6 +457,16 @@ class FollowTest(TestCase):
             Follow.objects.count(),
             1,
             msg='Функция подписки работает не корректно')
+        self.assertEqual(
+            Follow.objects.first().user,
+            self.user_follower,
+            msg='Проверь функцию подписки, подписчик не указан'
+        )
+        self.assertEqual(
+            Follow.objects.first().author,
+            self.user_following,
+            msg='Проверь функцию подписки, автор не указан'
+        )
 
     def test_unfollow(self):
         """Тест отписки."""
@@ -479,10 +502,26 @@ class FollowTest(TestCase):
         response = self.client.get(
             reverse('follow_index')
         )
-        self.assertContains(
-            response,
+        counter = response.context['paginator'].count
+        self.assertEqual(
+            counter,
+            1,
+            msg='На странице неправильное количество записей'
+        )
+        self.assertEqual(
+            response.context['page'][0].text,
             self.post.text,
-            msg_prefix='Пост на странице подписчика не отображается'
+            msg='Пост на странице подписчика не отображается'
+        )
+        self.assertEqual(
+            response.context['page'][0].author,
+            self.user_following,
+            msg='Имя автора не соответствует ожидаемому'
+        )
+        self.assertEqual(
+            response.context['page'][0].group,
+            self.group,
+            msg='Название группы не совпадает с заданным'
         )
 
     def test_not_follower_index(self):
@@ -490,10 +529,17 @@ class FollowTest(TestCase):
         response = self.client.get(
             reverse('follow_index')
         )
+        msg = 'Пост отображается при отсуствии подписки на автора'
+        counter = response.context['paginator'].count
+        self.assertEqual(
+            counter,
+            0,
+            msg=msg
+        )
         self.assertNotContains(
             response,
             self.post.text,
-            msg_prefix='Пост отображается при отсуствии подписки на автора'
+            msg_prefix=msg
         )
 
 
@@ -516,26 +562,25 @@ class CommentTest(TestCase):
             slug='test',
             description='Test group'
         )
+        cache.clear()
 
     def test_auth_comment(self):
         """Авторизованный пользователь...
 
-        имеет возможность оставить комменатрий.
+        имеет возможность оставить комментарий.
         """
-        self.client_auth.post(
-            reverse('new_post'),
-            {
-                'text': 'Тестовый пост',
-                'grop': self.group.id
-            }
+        self.post = Post.objects.create(
+            text='Тестовый пост авторизованного пользователя',
+            author=self.user,
+            pub_date=dt.datetime.now(),
+            group=self.group
         )
-        post = Post.objects.first()
         self.client_auth.post(
             reverse(
                 'add_comment',
                 args=[
                     self.user.username,
-                    post.id
+                    self.post.id
                 ]
             ),
             {
@@ -547,18 +592,33 @@ class CommentTest(TestCase):
             1,
             msg='Комментарий не добавляется'
         )
+        response = self.client.get(
+            reverse(
+                'post',
+                args=[self.post.author, Post.objects.first().id]),
+            follow=True
+        )
+        self.assertEqual(
+            response.context['items'].first().text,
+            Comment.objects.first().text,
+            msg='Текст комментария не совпадает с заданным'
+        )
+        self.assertEqual(
+            response.context['items'].first().author,
+            Comment.objects.first().author,
+            msg='Автор комментария не совпадает с заданным'
+        )
 
     def test_unauth_comment(self):
         """Неавторизованный пользователь...
 
         не имеет возможности оставить комментарий.
         """
-        self.client_auth.post(
-            reverse('new_post'),
-            {
-                'text': 'Тестовй пост',
-                'group': self.group.id
-            }
+        self.post = Post.objects.create(
+            text='Тестовый пост авторизованного пользователя',
+            author=self.user,
+            pub_date=dt.datetime.now(),
+            group=self.group
         )
         post = Post.objects.first()
         self.client_unauth.post(

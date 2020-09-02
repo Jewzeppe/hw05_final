@@ -36,7 +36,12 @@ class Post(models.Model):
         help_text='К какой группе относится Ваша запись?',
         verbose_name='Группа'
     )
-    image = models.ImageField(upload_to='posts/', blank=True, null=True)
+    image = models.ImageField(
+        upload_to='posts/',
+        blank=True,
+        null=True,
+        verbose_name='Картинка'
+    )
 
     class Meta:
         ordering = ('-pub_date',)
@@ -51,20 +56,22 @@ class Comment(models.Model):
         on_delete=models.CASCADE,
         blank=True,
         null=True,
-        related_name='comments'
+        related_name='comments',
+        verbose_name='Пост'
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='comments'
+        related_name='comments',
+        verbose_name='Автор поста'
     )
     text = models.TextField(
-        help_text='Добавьте комменатрий',
+        help_text='Добавьте комментарий',
         verbose_name='Коммент'
     )
     created = models.DateTimeField(
         verbose_name='Дата комментария',
-        auto_now_add=True
+        auto_now_add=True,
     )
 
 
@@ -79,3 +86,6 @@ class Follow(models.Model):
         on_delete=models.CASCADE,
         related_name='following'
     )
+
+    class Meta:
+        unique_together = ['user', 'author']

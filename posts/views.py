@@ -38,15 +38,19 @@ def group_posts(request, slug):
 @login_required
 def new_post(request):
     """Функция создания нового поста. Требует авторизации."""
-    if request.method == 'POST':
-        form = PostForm(request.POST, files=request.FILES or None)
-        if form.is_valid():
-            form.instance.author = request.user
-            form.save()
-            return redirect('index')
-        return render(request, 'posts/new.html', {'form': form})
-    form = PostForm()
-    return render(request, 'posts/new.html', {'form': form})
+    form = PostForm(
+        request.POST or None,
+        files=request.FILES or None
+    )
+    if form.is_valid():
+        form.instance.author = request.user
+        form.save()
+        return redirect('index')
+    return render(
+        request,
+        'posts/new.html',
+        {'form': form}
+    )
 
 
 def profile(request, username):
@@ -56,8 +60,6 @@ def profile(request, username):
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')
     page = paginator.get_page(page_number)
-    count_followers = Follow.objects.filter(author=author).count()
-    count_followings = Follow.objects.filter(user=author).count()
     try:
         following = Follow.objects.filter(
             user__username=request.user,
@@ -65,13 +67,18 @@ def profile(request, username):
         ).exists()
     except TypeError:
         following = True
+    # Нагуглил конструкцию
+    # with open(following, 'wb'):
+    # Но не совсем разобрался с режимами файла
+    # Не понял в чём различие режимов wb и ab
+    # Ведь по-большому счёту(в моей голове)
+    # они делают одно и то же
+    # Но в документации функционал описан разными словами.
     context = {
             'page': page,
             'paginator': paginator,
             'author': author,
-            'following': following,
-            'count_followings': count_followings,
-            'count_followers': count_followers
+            'following': following
     }
     return render(
         request,
@@ -157,10 +164,9 @@ def add_comment(request, username, post_id):
                 'posts/comments.html',
                 context
                 )
-    comment = form.save(commit=False)
-    comment.author = request.user
-    comment.post = post
-    comment.save()
+    form.instance.author = request.user
+    form.instance.post = post
+    form.save()
     return redirect('post', username=username, post_id=post.id)
 
 
@@ -178,7 +184,7 @@ def follow_index(request):
     page = paginator.get_page(page_number)
     return render(
         request,
-        'follow.html',
+        'posts/follow.html',
         {
             'page': page,
             'paginator': paginator
@@ -199,10 +205,9 @@ def profile_follow(request, username):
 def profile_unfollow(request, username):
     """Функция отписки пользователя от автора."""
     author = get_object_or_404(User, username=username)
-    if author.username != request.user.username:
-        unfollow = Follow.objects.get(
-            user=request.user,
-            author=author
-        )
-        unfollow.delete()
+    unfollow = Follow.objects.get(
+        user=request.user,
+        author=author
+    )
+    unfollow.delete()
     return redirect('profile', username=username)
