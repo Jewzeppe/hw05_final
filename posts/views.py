@@ -67,13 +67,6 @@ def profile(request, username):
         ).exists()
     except TypeError:
         following = True
-    # Нагуглил конструкцию
-    # with open(following, 'wb'):
-    # Но не совсем разобрался с режимами файла
-    # Не понял в чём различие режимов wb и ab
-    # Ведь по-большому счёту(в моей голове)
-    # они делают одно и то же
-    # Но в документации функционал описан разными словами.
     context = {
             'page': page,
             'paginator': paginator,

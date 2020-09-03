@@ -40,7 +40,8 @@ class Post(models.Model):
         upload_to='posts/',
         blank=True,
         null=True,
-        verbose_name='Картинка'
+        verbose_name='Картинка',
+        help_text='Всем требуется увидеть картинку к посту!'
     )
 
     class Meta:
@@ -88,4 +89,9 @@ class Follow(models.Model):
     )
 
     class Meta:
-        unique_together = ['user', 'author']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'author'],
+                name='follow_pair'
+                )
+        ]

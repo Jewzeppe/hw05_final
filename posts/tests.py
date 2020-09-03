@@ -121,7 +121,6 @@ class ContentTest(TestCase):
         )
         for url in url_list:
             with self.subTest(url=url):
-                cache.clear()
                 response = self.client_auth.get(url)
                 self.assertEqual(
                     response.status_code,
@@ -312,8 +311,10 @@ class TestImg(TestCase):
             image=img
         )
         url_list = [
+            reverse('index'),
             reverse('profile', args=[self.user.username]),
-            reverse('post', args=[self.user.username, post.id])
+            reverse('post', args=[self.user.username, post.id]),
+            reverse('group_posts', args=[self.group.slug])
         ]
 
         for url in url_list:
@@ -323,10 +324,10 @@ class TestImg(TestCase):
 
     def test_not_grafic_img(self):
         """Тест защиты от загрузки не-графических файлов."""
-        txt = SimpleUploadedFile(
-            name='txt',
+        not_jpeg = SimpleUploadedFile(
+            name='jpeg',
             content=b'content',
-            content_type='text/txt',
+            content_type='image/jpeg',
         )
         url = reverse('new_post')
         response = self.client.post(
@@ -334,7 +335,7 @@ class TestImg(TestCase):
                     {
                         'text': 'Какой то текст',
                         'group': self.group.id,
-                        'image': txt
+                        'image': not_jpeg
                     },
                     follow=True
         )
@@ -449,6 +450,7 @@ class FollowTest(TestCase):
             ),
             follow=True
         )
+        follow_pair = Follow.objects.first()
         self.assertEqual(
             response.status_code,
             200,
@@ -458,12 +460,12 @@ class FollowTest(TestCase):
             1,
             msg='Функция подписки работает не корректно')
         self.assertEqual(
-            Follow.objects.first().user,
+            follow_pair.user,
             self.user_follower,
             msg='Проверь функцию подписки, подписчик не указан'
         )
         self.assertEqual(
-            Follow.objects.first().author,
+            follow_pair.author,
             self.user_following,
             msg='Проверь функцию подписки, автор не указан'
         )
@@ -508,18 +510,19 @@ class FollowTest(TestCase):
             1,
             msg='На странице неправильное количество записей'
         )
+        context = response.context['page'][0]
         self.assertEqual(
-            response.context['page'][0].text,
+            context.text,
             self.post.text,
             msg='Пост на странице подписчика не отображается'
         )
         self.assertEqual(
-            response.context['page'][0].author,
+            context.author,
             self.user_following,
             msg='Имя автора не соответствует ожидаемому'
         )
         self.assertEqual(
-            response.context['page'][0].group,
+            context.group,
             self.group,
             msg='Название группы не совпадает с заданным'
         )
@@ -587,24 +590,38 @@ class CommentTest(TestCase):
                 'text': 'Тестовый коммент'
             }
         )
+        comment = Comment.objects.first()
+        msg = 'Комментарий не добавляется'
         self.assertEqual(
             Comment.objects.count(),
             1,
-            msg='Комментарий не добавляется'
+            msg=msg
         )
+        self.assertEqual(
+            comment.text,
+            'Тестовый коммент',
+            msg=msg
+        )
+        self.assertEqual(
+            comment.author,
+            self.user,
+            msg=msg
+        )
+
         response = self.client.get(
             reverse(
                 'post',
                 args=[self.post.author, Post.objects.first().id]),
             follow=True
         )
+        response_comment = response.context['items'].first()
         self.assertEqual(
-            response.context['items'].first().text,
+            response_comment.text,
             Comment.objects.first().text,
             msg='Текст комментария не совпадает с заданным'
         )
         self.assertEqual(
-            response.context['items'].first().author,
+            response_comment.author,
             Comment.objects.first().author,
             msg='Автор комментария не совпадает с заданным'
         )

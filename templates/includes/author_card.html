@@ -20,6 +20,7 @@
                     </div>
             </li>
             <li class="list-group-item">
+                {% if user.is_authenticated %}
                 {% if author != request.user %}
                         {% if following %}
                         <a class="btn btn-lg btn-light" 
@@ -27,7 +28,7 @@
                                 Отписаться 
                         </a> 
                         {% else %}
-                        {% if user.is_authenticated %}
+
                         <a class="btn btn-lg btn-primary" 
                                 href="{% url 'profile_follow' author %}" role="button">
                         Подписаться 
