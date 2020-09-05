@@ -31,12 +31,13 @@
                 {% endif %}
 
                 <a class="btn btn-sm text-muted" href="{% url 'post' post.author.username post.id %}" role="button">
-                    {% if post.comments.exists %}
+                    {% if user.is_authenticated and post.comments.exists %}
                     {{ post.comments.count }} комментариев
+                        {% if comments.count == 0 %}
+                        Добавить комментарий
+                        {% endif %}
                     {% else %}
-                    {% if user.is_authenticated %}
-                    Добавить комментарий
-                    {% endif %}
+                    Для комментария вам требуется авторизоваться
                     {% endif %}
                 </a>
                     

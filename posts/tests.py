@@ -1,4 +1,6 @@
 import datetime as dt
+import os
+import shutil
 
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -28,6 +30,13 @@ class ContentTest(TestCase):
             description='Test group'
         )
         cache.clear()
+
+    def tearDown(self):
+        """ЗАметаем следы"""
+        try:
+            shutil.rmtree('media/cache/')
+        except OSError:
+            pass
 
     def test_profile(self):
         """Тест №1 страницы профиля после регистрации."""
@@ -291,6 +300,14 @@ class TestImg(TestCase):
         )
         cache.clear()
 
+    def tearDown(self):
+        """Заметаем следы"""
+        try:
+            os.remove('media/posts/gif')
+            shutil.rmtree('media/cache/')
+        except OSError:
+            pass
+
     def test_post_img(self):
         """Тест шаблона на наличие тэга <img>."""
         gif = (
@@ -371,6 +388,13 @@ class TestCache(TestCase):
             group=self.group
         )
 
+    def tearDown(self):
+        """ЗАметаем следы"""
+        try:
+            shutil.rmtree('media/cache/')
+        except OSError:
+            pass
+
     def test_cache(self):
         """Тест кэширования главной страницы."""
         response = self.client.get(reverse('index'))
@@ -441,6 +465,13 @@ class FollowTest(TestCase):
         )
         cache.clear()
 
+    def tearDown(self):
+        """ЗАметаем следы"""
+        try:
+            shutil.rmtree('media/cache/')
+        except OSError:
+            pass
+
     def test_follow(self):
         """Тест подписки."""
         response = self.client.post(
@@ -450,7 +481,6 @@ class FollowTest(TestCase):
             ),
             follow=True
         )
-        follow_pair = Follow.objects.first()
         self.assertEqual(
             response.status_code,
             200,
@@ -459,6 +489,7 @@ class FollowTest(TestCase):
             Follow.objects.count(),
             1,
             msg='Функция подписки работает не корректно')
+        follow_pair = Follow.objects.first()
         self.assertEqual(
             follow_pair.user,
             self.user_follower,
@@ -567,6 +598,13 @@ class CommentTest(TestCase):
         )
         cache.clear()
 
+    def tearDown(self):
+        """ЗАметаем следы"""
+        try:
+            shutil.rmtree('media/cache/')
+        except OSError:
+            pass
+
     def test_auth_comment(self):
         """Авторизованный пользователь...
 
@@ -590,13 +628,13 @@ class CommentTest(TestCase):
                 'text': 'Тестовый коммент'
             }
         )
-        comment = Comment.objects.first()
         msg = 'Комментарий не добавляется'
         self.assertEqual(
             Comment.objects.count(),
             1,
             msg=msg
         )
+        comment = Comment.objects.first()
         self.assertEqual(
             comment.text,
             'Тестовый коммент',
@@ -617,12 +655,12 @@ class CommentTest(TestCase):
         response_comment = response.context['items'].first()
         self.assertEqual(
             response_comment.text,
-            Comment.objects.first().text,
+            comment.text,
             msg='Текст комментария не совпадает с заданным'
         )
         self.assertEqual(
             response_comment.author,
-            Comment.objects.first().author,
+            comment.author,
             msg='Автор комментария не совпадает с заданным'
         )
 
@@ -637,13 +675,12 @@ class CommentTest(TestCase):
             pub_date=dt.datetime.now(),
             group=self.group
         )
-        post = Post.objects.first()
         self.client_unauth.post(
             reverse(
                 'add_comment',
                 args=[
                     self.user.username,
-                    post.id
+                    self.post.id
                 ]
             ),
             {
